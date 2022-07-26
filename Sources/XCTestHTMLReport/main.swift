@@ -1,9 +1,11 @@
 import Foundation
 import XCTestHTMLReportCore
 
-var version = "2.2.1"
+var version = "2.2.1 (fork by alexkochetov)"
 
 print("XCTestHTMLReport \(version)")
+
+var manager = FileManager.default
 
 var command = Command()
 var help = BlockArgument("h", "", required: false, helpMessage: "Print usage and available options") {
@@ -47,17 +49,32 @@ if !command.isValid {
 
 let summary = Summary(resultPaths: result.values, renderingMode: renderingMode, downsizeImagesEnabled: downsizeImagesEnabled)
 
+let path = result.values.first!
+        .dropLastPathComponent()
+        .addPathComponent("reports")
+
+do {
+    try manager.createDirectory(
+        at: URL(fileURLWithPath: path),
+        withIntermediateDirectories: false,
+        attributes: nil
+    )
+} catch CocoaError.fileWriteFileExists {
+    // Folder already existed
+} catch let e {
+    Logger.error("An error has occured while creating the reports folder. Error: \(e)")
+}
+
 Logger.step("Building HTML..")
 let html = summary.generatedHtmlReport()
 
 do {
-    let path = result.values.first!
-        .dropLastPathComponent()
-        .addPathComponent("index.html")
-    Logger.substep("Writing report to \(path)")
+    let htmlPath = path
+        .addPathComponent("html_report.html")
+    Logger.substep("Writing report to \(htmlPath)")
 
-    try html.write(toFile: path, atomically: false, encoding: .utf8)
-    Logger.success("\nReport successfully created at \(path)")
+    try html.write(toFile: htmlPath, atomically: false, encoding: .utf8)
+    Logger.success("\nReport successfully created at \(htmlPath)")
 }
 catch let e {
     Logger.error("An error has occured while creating the report. Error: \(e)")
@@ -67,11 +84,13 @@ if junitEnabled {
     Logger.step("Building JUnit..")
     let junitXml = summary.generatedJunitReport()
     do {
-        let path = "\(result.values.first!)/report.junit"
-        Logger.substep("Writing JUnit report to \(path)")
+        let junitPath = path
+            .addPathComponent("junit_report.xml")
 
-        try junitXml.write(toFile: path, atomically: false, encoding: .utf8)
-        Logger.success("\nJUnit report successfully created at \(path)")
+        Logger.substep("Writing JUnit report to \(junitPath)")
+
+        try junitXml.write(toFile: junitPath, atomically: false, encoding: .utf8)
+        Logger.success("\nJUnit report successfully created at \(junitPath)")
     }
     catch let e {
         Logger.error("An error has occured while creating the JUnit report. Error: \(e)")
